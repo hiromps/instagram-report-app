@@ -79,9 +79,9 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
-      <header className="instagram-gradient text-white shadow-lg">
+      <header className="instagram-gradient text-white shadow-lg relative">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center">
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Instagram運用レポート</h1>
               {account && (
@@ -90,40 +90,43 @@ function App() {
                 </p>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* アカウント切り替えドロップダウン */}
-            {accounts.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={() => setShowAccountMenu(!showAccountMenu)}
-                  className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm border border-white/30"
-                  title="アカウントを切り替え"
-                >
-                  <span className="text-base sm:text-lg">👤</span>
-                  <div className="hidden md:flex flex-col items-start">
-                    <span className="text-xs opacity-80">アカウント</span>
-                    <span className="text-sm font-semibold leading-tight">
-                      {account?.accountName || '未選択'}
-                    </span>
-                  </div>
-                  <div className="md:hidden">
-                    <span className="text-sm font-medium">
-                      {accounts.length}
-                    </span>
-                  </div>
-                  <span className="text-xs ml-1">{showAccountMenu ? '▲' : '▼'}</span>
-                </button>
+        {/* アカウント切り替えドロップダウン - 右上固定 */}
+        {accounts.length > 0 && (
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30">
+            <div className="relative">
+              <button
+                onClick={() => setShowAccountMenu(!showAccountMenu)}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm border border-white/30 shadow-lg"
+                title="アカウントを切り替え"
+              >
+                <span className="text-base sm:text-lg">👤</span>
+                <div className="hidden md:flex flex-col items-start">
+                  <span className="text-xs opacity-80">アカウント</span>
+                  <span className="text-sm font-semibold leading-tight">
+                    {account?.accountName || '未選択'}
+                  </span>
+                </div>
+                <div className="md:hidden">
+                  <span className="text-sm font-medium">
+                    {accounts.length}
+                  </span>
+                </div>
+                <span className="text-xs ml-1">{showAccountMenu ? '▲' : '▼'}</span>
+              </button>
 
-                {/* ドロップダウンメニュー */}
-                {showAccountMenu && (
-                  <>
-                    {/* 背景オーバーレイ */}
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowAccountMenu(false)}
-                    />
+              {/* ドロップダウンメニュー */}
+              {showAccountMenu && (
+                <>
+                  {/* 背景オーバーレイ */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowAccountMenu(false)}
+                  />
 
-                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-20 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50 overflow-hidden">
                       <div className="py-2">
                         <div className="px-4 py-3 bg-gray-50 border-b">
                           <div className="text-xs font-semibold text-gray-500 uppercase">
@@ -176,15 +179,14 @@ function App() {
                             <span className="text-lg">+</span>
                             <span>新しいアカウントを追加</span>
                           </button>
-                        </div>
                       </div>
                     </div>
-                  </>
-                )}
-              </div>
-            )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </header>
 
       {/* ナビゲーション */}
