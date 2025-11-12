@@ -61,6 +61,17 @@ CREATE INDEX IF NOT EXISTS idx_instagram_records_user_id_account_id
 -- 4. 本番環境用RLSポリシー（認証済みユーザーのみアクセス可能）
 -- ----------------------------------------------------------------------------
 
+-- 既存の本番環境用ポリシーを削除（再実行時のエラー防止）
+DROP POLICY IF EXISTS "Users can view their own accounts" ON instagram_accounts;
+DROP POLICY IF EXISTS "Users can insert their own accounts" ON instagram_accounts;
+DROP POLICY IF EXISTS "Users can update their own accounts" ON instagram_accounts;
+DROP POLICY IF EXISTS "Users can delete their own accounts" ON instagram_accounts;
+
+DROP POLICY IF EXISTS "Users can view their own records" ON instagram_records;
+DROP POLICY IF EXISTS "Users can insert their own records" ON instagram_records;
+DROP POLICY IF EXISTS "Users can update their own records" ON instagram_records;
+DROP POLICY IF EXISTS "Users can delete their own records" ON instagram_records;
+
 -- instagram_accountsテーブルのポリシー
 -- ユーザーは自分のアカウントのみ閲覧可能
 CREATE POLICY "Users can view their own accounts"
