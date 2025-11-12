@@ -55,10 +55,10 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
       <header className="instagram-gradient text-white shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold">Instagram運用レポート</h1>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Instagram運用レポート</h1>
           {account && (
-            <p className="text-sm mt-1 opacity-90">
+            <p className="text-xs sm:text-sm mt-1 opacity-90">
               {account.accountName} で運用中
             </p>
           )}
@@ -67,20 +67,20 @@ function App() {
 
       {/* ナビゲーション */}
       <nav className="bg-white shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4">
-          <div className="flex space-x-1 overflow-x-auto">
+        <div className="container mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex space-x-0.5 sm:space-x-1 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-4 font-medium whitespace-nowrap transition-all ${
+                className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-sm sm:text-base font-medium whitespace-nowrap transition-all flex items-center gap-1 sm:gap-2 ${
                   activeTab === tab.id
-                    ? 'border-b-2 border-purple-600 text-purple-600'
+                    ? 'border-b-2 border-purple-600 text-purple-600 bg-purple-50'
                     : 'text-gray-600 hover:text-purple-600 hover:bg-gray-50'
                 }`}
               >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.label}
+                <span className="text-base sm:text-lg">{tab.icon}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
           </div>
@@ -88,7 +88,7 @@ function App() {
       </nav>
 
       {/* メインコンテンツ */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         {activeTab === 'dashboard' && <Dashboard records={records} />}
         {activeTab === 'input' && (
           <DataInput account={account} onSave={handleRecordSave} />
