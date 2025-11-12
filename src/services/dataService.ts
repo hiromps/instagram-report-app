@@ -1,4 +1,5 @@
 import type { InstagramAccount, InstagramRecord } from '../types';
+import { supabaseService } from './supabaseService';
 
 const STORAGE_KEYS = {
   ACCOUNTS: 'instagramAccounts',
@@ -8,8 +9,22 @@ const STORAGE_KEYS = {
 } as const;
 
 class DataService {
+  private useSupabase = true; // Supabaseを使用するかどうかのフラグ
   // 全アカウントの読み込み
-  loadAccounts(): InstagramAccount[] {
+  async loadAccounts(): Promise<InstagramAccount[]> {
+    if (this.useSupabase) {
+      try {
+        return await supabaseService.getAccounts();
+      } catch (error) {
+        console.error('アカウント情報の読み込みに失敗しました（Supabase）:', error);
+        // フォールバックとしてlocalStorageから読み込み
+        return this.loadAccountsFromLocalStorage();
+      }
+    }
+    return this.loadAccountsFromLocalStorage();
+  }
+
+  private loadAccountsFromLocalStorage(): InstagramAccount[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
       return data ? JSON.parse(data) : [];
@@ -20,26 +35,53 @@ class DataService {
   }
 
   // アカウント情報の保存（追加または更新）
-  saveAccount(account: InstagramAccount): void {
+  async saveAccount(account: InstagramAccount): Promise<void> {
+    if (this.useSupabase) {
+      try {
+        const accounts = await this.loadAccounts();
+        const existingAccount = accounts.find(a => a.accountId === account.accountId);
+
+        if (existingAccount) {
+          // 既存アカウントの更新
+          await supabaseService.updateAccount(account.accountId, account);
+        } else {
+          // 新規アカウントの追加
+          await supabaseService.createAccount(account);
+
+          // 最初のアカウントの場合は自動的にアクティブに
+          if (accounts.length === 0) {
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID, account.accountId);
+          }
+        }
+
+        // localStorageにも同期（フォールバック用）
+        this.saveAccountToLocalStorage(account);
+        return;
+      } catch (error) {
+        console.error('アカウント情報の保存に失敗しました（Supabase）:', error);
+        // フォールバックとしてlocalStorageに保存
+      }
+    }
+    this.saveAccountToLocalStorage(account);
+  }
+
+  private saveAccountToLocalStorage(account: InstagramAccount): void {
     try {
-      const accounts = this.loadAccounts();
+      const accounts = this.loadAccountsFromLocalStorage();
       const existingIndex = accounts.findIndex(a => a.accountId === account.accountId);
 
       if (existingIndex >= 0) {
-        // 既存アカウントの更新
         accounts[existingIndex] = {
           ...account,
           updatedAt: new Date().toISOString(),
         };
       } else {
-        // 新規アカウントの追加
         const newAccount = {
           ...account,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
-        // 最初のアカウントの場合は自動的にアクティブに
         if (accounts.length === 0) {
           newAccount.isActive = true;
           localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID, account.accountId);
@@ -55,13 +97,13 @@ class DataService {
     }
   }
 
-  // アクティブなアカウントの取得
+  // アクティブなアカウントの取得（同期版）
   getActiveAccount(): InstagramAccount | null {
     try {
       const activeAccountId = localStorage.getItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
       if (!activeAccountId) return null;
 
-      const accounts = this.loadAccounts();
+      const accounts = this.loadAccountsFromLocalStorage();
       return accounts.find(a => a.accountId === activeAccountId) || null;
     } catch (error) {
       console.error('アクティブアカウントの取得に失敗しました:', error);
@@ -69,10 +111,10 @@ class DataService {
     }
   }
 
-  // アクティブなアカウントを設定
+  // アクティブなアカウントを設定（同期版）
   setActiveAccount(accountId: string): void {
     try {
-      const accounts = this.loadAccounts();
+      const accounts = this.loadAccountsFromLocalStorage();
       const account = accounts.find(a => a.accountId === accountId);
 
       if (!account) {
@@ -93,10 +135,10 @@ class DataService {
     }
   }
 
-  // アカウントの削除
+  // アカウントの削除（同期版）
   deleteAccount(accountId: string): void {
     try {
-      const accounts = this.loadAccounts();
+      const accounts = this.loadAccountsFromLocalStorage();
       const filteredAccounts = accounts.filter(a => a.accountId !== accountId);
 
       localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(filteredAccounts));
@@ -114,8 +156,9 @@ class DataService {
       }
 
       // アカウントに紐づく記録も削除
-      const records = this.loadRecords();
-      const filteredRecords = records.filter(r => r.accountId !== accountId);
+      const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
+      const records = data ? JSON.parse(data) : [];
+      const filteredRecords = records.filter((r: InstagramRecord) => r.accountId !== accountId);
       localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(filteredRecords));
     } catch (error) {
       console.error('アカウントの削除に失敗しました:', error);
@@ -129,13 +172,28 @@ class DataService {
   }
 
   // 記録の保存
-  saveRecord(record: InstagramRecord): void {
+  async saveRecord(record: InstagramRecord): Promise<void> {
+    if (this.useSupabase) {
+      try {
+        const enrichedRecord = this.calculateRecordMetrics(record);
+        await supabaseService.createRecord(enrichedRecord);
+
+        // localStorageにも同期（フォールバック用）
+        this.saveRecordToLocalStorage(enrichedRecord);
+        return;
+      } catch (error) {
+        console.error('記録の保存に失敗しました（Supabase）:', error);
+        // フォールバックとしてlocalStorageに保存
+      }
+    }
+    this.saveRecordToLocalStorage(record);
+  }
+
+  private saveRecordToLocalStorage(record: InstagramRecord): void {
     try {
-      const records = this.loadRecords();
-
-      // 自動計算フィールドを追加
+      const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
+      const records = data ? JSON.parse(data) : [];
       const enrichedRecord = this.calculateRecordMetrics(record);
-
       records.push(enrichedRecord);
       localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
     } catch (error) {
@@ -145,10 +203,26 @@ class DataService {
   }
 
   // 記録の更新
-  updateRecord(id: string, updatedRecord: Partial<InstagramRecord>): void {
+  async updateRecord(id: string, updatedRecord: Partial<InstagramRecord>): Promise<void> {
+    if (this.useSupabase) {
+      try {
+        await supabaseService.updateRecord(id, updatedRecord);
+
+        // localStorageにも同期
+        this.updateRecordInLocalStorage(id, updatedRecord);
+        return;
+      } catch (error) {
+        console.error('記録の更新に失敗しました（Supabase）:', error);
+      }
+    }
+    this.updateRecordInLocalStorage(id, updatedRecord);
+  }
+
+  private updateRecordInLocalStorage(id: string, updatedRecord: Partial<InstagramRecord>): void {
     try {
-      const records = this.loadRecords();
-      const index = records.findIndex(r => r.id === id);
+      const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
+      const records = data ? JSON.parse(data) : [];
+      const index = records.findIndex((r: InstagramRecord) => r.id === id);
 
       if (index === -1) {
         throw new Error('記録が見つかりません');
@@ -168,10 +242,26 @@ class DataService {
   }
 
   // 記録の削除
-  deleteRecord(id: string): void {
+  async deleteRecord(id: string): Promise<void> {
+    if (this.useSupabase) {
+      try {
+        await supabaseService.deleteRecord(id);
+
+        // localStorageからも削除
+        this.deleteRecordFromLocalStorage(id);
+        return;
+      } catch (error) {
+        console.error('記録の削除に失敗しました（Supabase）:', error);
+      }
+    }
+    this.deleteRecordFromLocalStorage(id);
+  }
+
+  private deleteRecordFromLocalStorage(id: string): void {
     try {
-      const records = this.loadRecords();
-      const filtered = records.filter(r => r.id !== id);
+      const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
+      const records = data ? JSON.parse(data) : [];
+      const filtered = records.filter((r: InstagramRecord) => r.id !== id);
       localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(filtered));
     } catch (error) {
       console.error('記録の削除に失敗しました:', error);
@@ -180,7 +270,23 @@ class DataService {
   }
 
   // 全記録の読み込み（アクティブアカウントのみ）
-  loadRecords(): InstagramRecord[] {
+  async loadRecords(): Promise<InstagramRecord[]> {
+    if (this.useSupabase) {
+      try {
+        const activeAccount = this.getActiveAccount();
+        if (!activeAccount) return [];
+
+        return await supabaseService.getRecords(activeAccount.accountId);
+      } catch (error) {
+        console.error('記録の読み込みに失敗しました（Supabase）:', error);
+        // フォールバックとしてlocalStorageから読み込み
+        return this.loadRecordsFromLocalStorage();
+      }
+    }
+    return this.loadRecordsFromLocalStorage();
+  }
+
+  private loadRecordsFromLocalStorage(): InstagramRecord[] {
     try {
       const activeAccount = this.getActiveAccount();
       if (!activeAccount) return [];
@@ -188,12 +294,10 @@ class DataService {
       const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
       const allRecords = data ? JSON.parse(data) : [];
 
-      // アクティブアカウントの記録のみフィルタリング
       const records = allRecords.filter(
         (r: InstagramRecord) => r.accountId === activeAccount.accountId
       );
 
-      // 日付でソート（新しい順）
       return records.sort((a: InstagramRecord, b: InstagramRecord) => {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
@@ -219,8 +323,8 @@ class DataService {
   }
 
   // 特定期間の記録を取得
-  getRecordsByDateRange(startDate: string, endDate: string): InstagramRecord[] {
-    const records = this.loadRecords();
+  async getRecordsByDateRange(startDate: string, endDate: string): Promise<InstagramRecord[]> {
+    const records = await this.loadRecords();
     const start = new Date(startDate).getTime();
     const end = new Date(endDate).getTime();
 

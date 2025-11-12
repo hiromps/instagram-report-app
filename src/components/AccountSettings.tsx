@@ -18,8 +18,8 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
   const [accountId, setAccountId] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadAccounts = () => {
-    const loadedAccounts = dataService.loadAccounts();
+  const loadAccounts = async () => {
+    const loadedAccounts = await dataService.loadAccounts();
     const active = dataService.getActiveAccount();
     setAccounts(loadedAccounts);
     setActiveAccount(active);
@@ -34,7 +34,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     loadAccounts();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!accountName.trim() || !accountId.trim()) {
@@ -59,8 +59,8 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
         updatedAt: new Date().toISOString(),
       };
 
-      dataService.saveAccount(account);
-      loadAccounts();
+      await dataService.saveAccount(account);
+      await loadAccounts();
 
       // フォームをリセット
       setAccountName('');

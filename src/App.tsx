@@ -20,10 +20,10 @@ function App() {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     const loadedAccount = dataService.getActiveAccount();
-    const loadedAccounts = dataService.loadAccounts();
-    const loadedRecords = dataService.loadRecords();
+    const loadedAccounts = await dataService.loadAccounts();
+    const loadedRecords = await dataService.loadRecords();
 
     setAccount(loadedAccount);
     setAccounts(loadedAccounts);
