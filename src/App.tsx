@@ -43,14 +43,18 @@ function App() {
     }
   };
 
-  const handleAccountSwitch = (accountId: string) => {
+  const handleAccountSwitch = async (accountId: string) => {
+    if (account?.accountId === accountId) {
+      setShowAccountMenu(false);
+      return;
+    }
+
     try {
       dataService.setActiveAccount(accountId);
-      loadData();
+      await loadData();
       setShowAccountMenu(false);
     } catch (error) {
-      alert('アカウントの切り替えに失敗しました');
-      console.error(error);
+      console.error('アカウントの切り替えに失敗しました:', error);
     }
   };
 
@@ -92,13 +96,22 @@ function App() {
               <div className="relative">
                 <button
                   onClick={() => setShowAccountMenu(!showAccountMenu)}
-                  className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm"
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm border border-white/30"
+                  title="アカウントを切り替え"
                 >
-                  <span className="text-sm sm:text-base">👤</span>
-                  <span className="hidden sm:inline text-sm font-medium">
-                    {accounts.length}アカウント
-                  </span>
-                  <span className="text-xs">▼</span>
+                  <span className="text-base sm:text-lg">👤</span>
+                  <div className="hidden md:flex flex-col items-start">
+                    <span className="text-xs opacity-80">アカウント</span>
+                    <span className="text-sm font-semibold leading-tight">
+                      {account?.accountName || '未選択'}
+                    </span>
+                  </div>
+                  <div className="md:hidden">
+                    <span className="text-sm font-medium">
+                      {accounts.length}
+                    </span>
+                  </div>
+                  <span className="text-xs ml-1">{showAccountMenu ? '▲' : '▼'}</span>
                 </button>
 
                 {/* ドロップダウンメニュー */}
@@ -110,28 +123,51 @@ function App() {
                       onClick={() => setShowAccountMenu(false)}
                     />
 
-                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl z-20 overflow-hidden">
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-20 overflow-hidden">
                       <div className="py-2">
-                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
-                          アカウント一覧
+                        <div className="px-4 py-3 bg-gray-50 border-b">
+                          <div className="text-xs font-semibold text-gray-500 uppercase">
+                            アカウント一覧
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            {accounts.length}個のアカウントを管理中
+                          </div>
                         </div>
-                        {accounts.map((acc) => (
-                          <button
-                            key={acc.accountId}
-                            onClick={() => handleAccountSwitch(acc.accountId)}
-                            className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                              account?.accountId === acc.accountId ? 'bg-purple-50' : ''
-                            }`}
-                          >
-                            <div>
-                              <div className="font-medium text-gray-900">{acc.accountName}</div>
-                              <div className="text-xs text-gray-500">ID: {acc.accountId}</div>
-                            </div>
-                            {account?.accountId === acc.accountId && (
-                              <span className="text-purple-600 text-lg">✓</span>
-                            )}
-                          </button>
-                        ))}
+                        {accounts.map((acc) => {
+                          const isActive = account?.accountId === acc.accountId;
+                          return (
+                            <button
+                              key={acc.accountId}
+                              onClick={() => handleAccountSwitch(acc.accountId)}
+                              className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-all flex items-center justify-between group ${
+                                isActive ? 'bg-purple-50 border-l-4 border-purple-600' : 'border-l-4 border-transparent'
+                              }`}
+                            >
+                              <div className="flex-1">
+                                <div className={`font-medium ${isActive ? 'text-purple-900' : 'text-gray-900'}`}>
+                                  {acc.accountName}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  ID: {acc.accountId}
+                                </div>
+                                {isActive && (
+                                  <div className="text-xs text-purple-600 font-medium mt-1">
+                                    現在のアカウント
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isActive ? (
+                                  <span className="text-purple-600 text-xl">✓</span>
+                                ) : (
+                                  <span className="text-gray-400 group-hover:text-purple-600 transition-colors">
+                                    →
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
                         <div className="border-t mt-2 pt-2">
                           <button
                             onClick={handleAddAccount}
