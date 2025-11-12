@@ -1,31 +1,131 @@
 import type { InstagramAccount, InstagramRecord } from '../types';
 
 const STORAGE_KEYS = {
-  ACCOUNT: 'instagramAccount',
+  ACCOUNTS: 'instagramAccounts',
+  ACTIVE_ACCOUNT_ID: 'activeAccountId',
   RECORDS: 'instagramRecords',
   API_KEY: 'openaiApiKey',
 } as const;
 
 class DataService {
-  // アカウント情報の保存
+  // 全アカウントの読み込み
+  loadAccounts(): InstagramAccount[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      console.error('アカウント情報の読み込みに失敗しました:', error);
+      return [];
+    }
+  }
+
+  // アカウント情報の保存（追加または更新）
   saveAccount(account: InstagramAccount): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(account));
+      const accounts = this.loadAccounts();
+      const existingIndex = accounts.findIndex(a => a.accountId === account.accountId);
+
+      if (existingIndex >= 0) {
+        // 既存アカウントの更新
+        accounts[existingIndex] = {
+          ...account,
+          updatedAt: new Date().toISOString(),
+        };
+      } else {
+        // 新規アカウントの追加
+        const newAccount = {
+          ...account,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        // 最初のアカウントの場合は自動的にアクティブに
+        if (accounts.length === 0) {
+          newAccount.isActive = true;
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID, account.accountId);
+        }
+
+        accounts.push(newAccount);
+      }
+
+      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
     } catch (error) {
       console.error('アカウント情報の保存に失敗しました:', error);
       throw new Error('アカウント情報の保存に失敗しました');
     }
   }
 
-  // アカウント情報の読み込み
-  loadAccount(): InstagramAccount | null {
+  // アクティブなアカウントの取得
+  getActiveAccount(): InstagramAccount | null {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.ACCOUNT);
-      return data ? JSON.parse(data) : null;
+      const activeAccountId = localStorage.getItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      if (!activeAccountId) return null;
+
+      const accounts = this.loadAccounts();
+      return accounts.find(a => a.accountId === activeAccountId) || null;
     } catch (error) {
-      console.error('アカウント情報の読み込みに失敗しました:', error);
+      console.error('アクティブアカウントの取得に失敗しました:', error);
       return null;
     }
+  }
+
+  // アクティブなアカウントを設定
+  setActiveAccount(accountId: string): void {
+    try {
+      const accounts = this.loadAccounts();
+      const account = accounts.find(a => a.accountId === accountId);
+
+      if (!account) {
+        throw new Error('アカウントが見つかりません');
+      }
+
+      // 全アカウントのisActiveをfalseに
+      accounts.forEach(a => a.isActive = false);
+
+      // 指定されたアカウントをアクティブに
+      account.isActive = true;
+
+      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID, accountId);
+    } catch (error) {
+      console.error('アクティブアカウントの設定に失敗しました:', error);
+      throw new Error('アクティブアカウントの設定に失敗しました');
+    }
+  }
+
+  // アカウントの削除
+  deleteAccount(accountId: string): void {
+    try {
+      const accounts = this.loadAccounts();
+      const filteredAccounts = accounts.filter(a => a.accountId !== accountId);
+
+      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(filteredAccounts));
+
+      // 削除したアカウントがアクティブだった場合
+      const activeAccountId = localStorage.getItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      if (activeAccountId === accountId) {
+        if (filteredAccounts.length > 0) {
+          // 残っているアカウントの最初をアクティブに
+          this.setActiveAccount(filteredAccounts[0].accountId);
+        } else {
+          // アカウントが全て削除された場合
+          localStorage.removeItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+        }
+      }
+
+      // アカウントに紐づく記録も削除
+      const records = this.loadRecords();
+      const filteredRecords = records.filter(r => r.accountId !== accountId);
+      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(filteredRecords));
+    } catch (error) {
+      console.error('アカウントの削除に失敗しました:', error);
+      throw new Error('アカウントの削除に失敗しました');
+    }
+  }
+
+  // 後方互換性のため（既存コードで使用されている場合）
+  loadAccount(): InstagramAccount | null {
+    return this.getActiveAccount();
   }
 
   // 記録の保存
@@ -79,13 +179,36 @@ class DataService {
     }
   }
 
-  // 全記録の読み込み
+  // 全記録の読み込み（アクティブアカウントのみ）
   loadRecords(): InstagramRecord[] {
+    try {
+      const activeAccount = this.getActiveAccount();
+      if (!activeAccount) return [];
+
+      const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
+      const allRecords = data ? JSON.parse(data) : [];
+
+      // アクティブアカウントの記録のみフィルタリング
+      const records = allRecords.filter(
+        (r: InstagramRecord) => r.accountId === activeAccount.accountId
+      );
+
+      // 日付でソート（新しい順）
+      return records.sort((a: InstagramRecord, b: InstagramRecord) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+    } catch (error) {
+      console.error('記録の読み込みに失敗しました:', error);
+      return [];
+    }
+  }
+
+  // 全アカウントの全記録を読み込み
+  loadAllRecords(): InstagramRecord[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
       const records = data ? JSON.parse(data) : [];
 
-      // 日付でソート（新しい順）
       return records.sort((a: InstagramRecord, b: InstagramRecord) => {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
@@ -139,7 +262,8 @@ class DataService {
   // データの完全削除（リセット）
   clearAllData(): void {
     try {
-      localStorage.removeItem(STORAGE_KEYS.ACCOUNT);
+      localStorage.removeItem(STORAGE_KEYS.ACCOUNTS);
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
       localStorage.removeItem(STORAGE_KEYS.RECORDS);
     } catch (error) {
       console.error('データの削除に失敗しました:', error);
@@ -147,13 +271,13 @@ class DataService {
     }
   }
 
-  // データのエクスポート
+  // データのエクスポート（全アカウント）
   exportAllData(): string {
-    const account = this.loadAccount();
-    const records = this.loadRecords();
+    const accounts = this.loadAccounts();
+    const records = this.loadAllRecords();
 
     return JSON.stringify({
-      account,
+      accounts,
       records,
       exportedAt: new Date().toISOString(),
     }, null, 2);
@@ -164,7 +288,12 @@ class DataService {
     try {
       const data = JSON.parse(jsonData);
 
-      if (data.account) {
+      // 複数アカウント形式
+      if (data.accounts && Array.isArray(data.accounts)) {
+        localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(data.accounts));
+      }
+      // 旧形式（単一アカウント）との互換性
+      else if (data.account) {
         this.saveAccount(data.account);
       }
 

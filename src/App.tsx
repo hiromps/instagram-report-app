@@ -101,7 +101,7 @@ function App() {
           />
         )}
         {activeTab === 'settings' && (
-          <AccountSettings onSave={handleAccountSave} />
+          <AccountSettings onSave={handleAccountSave} onAccountSwitch={loadData} />
         )}
       </main>
 

@@ -5,6 +5,7 @@ export interface InstagramAccount {
   accountId: string;
   createdAt: string;
   updatedAt: string;
+  isActive?: boolean;
 }
 
 export interface InstagramRecord {
