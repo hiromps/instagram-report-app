@@ -2,6 +2,59 @@ import { supabase } from '../lib/supabase';
 import type { InstagramRecord, InstagramAccount } from '../types';
 
 class SupabaseService {
+  // Supabase接続テスト
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+    try {
+      console.log('🔌 Supabase接続テスト開始...');
+
+      // テーブルの存在確認
+      const { error: accountsError } = await supabase
+        .from('instagram_accounts')
+        .select('count')
+        .limit(1);
+
+      if (accountsError) {
+        console.error('❌ instagram_accountsテーブルへのアクセスに失敗:', accountsError);
+        return {
+          success: false,
+          message: 'instagram_accountsテーブルにアクセスできません',
+          details: accountsError,
+        };
+      }
+
+      const { error: recordsError } = await supabase
+        .from('instagram_records')
+        .select('count')
+        .limit(1);
+
+      if (recordsError) {
+        console.error('❌ instagram_recordsテーブルへのアクセスに失敗:', recordsError);
+        return {
+          success: false,
+          message: 'instagram_recordsテーブルにアクセスできません',
+          details: recordsError,
+        };
+      }
+
+      console.log('✅ Supabase接続テスト成功');
+      return {
+        success: true,
+        message: 'Supabaseに正常に接続されています',
+        details: {
+          accountsTable: '正常',
+          recordsTable: '正常',
+        },
+      };
+    } catch (error) {
+      console.error('❌ Supabase接続テスト中にエラーが発生:', error);
+      return {
+        success: false,
+        message: '接続テスト中にエラーが発生しました',
+        details: error,
+      };
+    }
+  }
+
   // Instagram記録の取得
   async getRecords(accountId?: string): Promise<InstagramRecord[]> {
     try {
@@ -69,6 +122,11 @@ class SupabaseService {
         account_id: record.accountId,
       };
 
+      console.log('📤 Supabaseにデータを送信中...', {
+        date: dbRecord.date,
+        account_id: dbRecord.account_id,
+      });
+
       const { data, error } = await supabase
         .from('instagram_records')
         .insert(dbRecord)
@@ -76,13 +134,23 @@ class SupabaseService {
         .single();
 
       if (error) {
-        console.error('記録の作成に失敗しました:', error);
+        console.error('❌ 記録の作成に失敗しました:', {
+          error,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
         throw error;
+      }
+
+      if (data) {
+        console.log('✅ 記録の作成に成功しました:', data.id);
       }
 
       return data ? this.convertToInstagramRecord(data) : null;
     } catch (error) {
-      console.error('記録の作成中にエラーが発生しました:', error);
+      console.error('❌ 記録の作成中にエラーが発生しました:', error);
       return null;
     }
   }
@@ -220,6 +288,26 @@ class SupabaseService {
     } catch (error) {
       console.error('アカウントの更新中にエラーが発生しました:', error);
       return null;
+    }
+  }
+
+  // アカウントの削除
+  async deleteAccount(accountId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('instagram_accounts')
+        .delete()
+        .eq('account_id', accountId);
+
+      if (error) {
+        console.error('アカウントの削除に失敗しました:', error);
+        throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('アカウントの削除中にエラーが発生しました:', error);
+      return false;
     }
   }
 

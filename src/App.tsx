@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { InstagramAccount, InstagramRecord } from './types';
 import { dataService } from './services/dataService';
+import { supabaseService } from './services/supabaseService';
 import { Dashboard } from './components/Dashboard';
 import { DataInput } from './components/DataInput';
 import { AIReportViewer } from './components/AIReportViewer';
@@ -17,11 +18,22 @@ function App() {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   useEffect(() => {
+    // Supabase接続テストを実行
+    const testSupabaseConnection = async () => {
+      const result = await supabaseService.testConnection();
+      if (result.success) {
+        console.log('✅ Supabase接続確認:', result.message);
+      } else {
+        console.error('❌ Supabase接続エラー:', result.message, result.details);
+      }
+    };
+
+    testSupabaseConnection();
     loadData();
   }, []);
 
   const loadData = async () => {
-    const loadedAccount = dataService.getActiveAccount();
+    const loadedAccount = await dataService.getActiveAccount();
     const loadedAccounts = await dataService.loadAccounts();
     const loadedRecords = await dataService.loadRecords();
 
@@ -50,7 +62,7 @@ function App() {
     }
 
     try {
-      dataService.setActiveAccount(accountId);
+      await dataService.setActiveAccount(accountId);
       await loadData();
       setShowAccountMenu(false);
     } catch (error) {

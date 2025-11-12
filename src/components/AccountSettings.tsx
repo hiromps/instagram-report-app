@@ -20,7 +20,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
 
   const loadAccounts = async () => {
     const loadedAccounts = await dataService.loadAccounts();
-    const active = dataService.getActiveAccount();
+    const active = await dataService.getActiveAccount();
     setAccounts(loadedAccounts);
     setActiveAccount(active);
 
@@ -81,12 +81,12 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     }
   };
 
-  const handleSwitchAccount = (accountId: string) => {
+  const handleSwitchAccount = async (accountId: string) => {
     try {
-      dataService.setActiveAccount(accountId);
-      loadAccounts();
+      await dataService.setActiveAccount(accountId);
+      await loadAccounts();
 
-      const newActiveAccount = dataService.getActiveAccount();
+      const newActiveAccount = await dataService.getActiveAccount();
       onSave(newActiveAccount);
 
       if (onAccountSwitch) {
@@ -100,7 +100,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     }
   };
 
-  const handleDeleteAccount = (accountId: string) => {
+  const handleDeleteAccount = async (accountId: string) => {
     const account = accounts.find(a => a.accountId === accountId);
     if (!account) return;
 
@@ -110,10 +110,10 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
       )
     ) {
       try {
-        dataService.deleteAccount(accountId);
-        loadAccounts();
+        await dataService.deleteAccount(accountId);
+        await loadAccounts();
 
-        const newActiveAccount = dataService.getActiveAccount();
+        const newActiveAccount = await dataService.getActiveAccount();
         onSave(newActiveAccount);
 
         alert('アカウントを削除しました');
@@ -124,20 +124,25 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     }
   };
 
-  const handleClearAllData = () => {
+  const handleClearAllData = async () => {
     if (
       window.confirm(
         '本当に全てのデータを削除しますか？\n全てのアカウントと記録が削除されます。\nこの操作は取り消せません。'
       )
     ) {
-      dataService.clearAllData();
-      setAccounts([]);
-      setActiveAccount(null);
-      setAccountName('');
-      setAccountId('');
-      setShowAddForm(true);
-      onSave(null);
-      alert('全てのデータを削除しました');
+      try {
+        await dataService.clearAllData();
+        setAccounts([]);
+        setActiveAccount(null);
+        setAccountName('');
+        setAccountId('');
+        setShowAddForm(true);
+        onSave(null);
+        alert('全てのデータを削除しました');
+      } catch (error) {
+        alert('データの削除に失敗しました');
+        console.error(error);
+      }
     }
   };
 
