@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import type { InstagramAccount, InstagramRecord } from './types';
 import { dataService } from './services/dataService';
 import { supabaseService } from './services/supabaseService';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 import { DataInput } from './components/DataInput';
 import { AIReportViewer } from './components/AIReportViewer';
@@ -10,7 +12,8 @@ import { AccountSettings } from './components/AccountSettings';
 
 type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
 
-function App() {
+function MainApp() {
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [account, setAccount] = useState<InstagramAccount | null>(null);
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
@@ -93,7 +96,7 @@ function App() {
       {/* ヘッダー */}
       <header className="instagram-gradient text-white shadow-lg relative">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex items-center">
+          <div className="flex items-center justify-between">
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Instagram運用レポート</h1>
               {account && (
@@ -102,12 +105,30 @@ function App() {
                 </p>
               )}
             </div>
+
+            {/* ユーザー情報とログアウトボタン */}
+            <div className="flex items-center gap-4">
+              <div className="hidden md:block text-right">
+                <p className="text-xs opacity-80">ログイン中</p>
+                <p className="text-sm font-medium">{user?.email}</p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (window.confirm('ログアウトしますか？')) {
+                    await signOut();
+                  }
+                }}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm font-medium"
+              >
+                ログアウト
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* アカウント切り替えドロップダウン - 右上固定 */}
+        {/* アカウント切り替えドロップダウン - ログアウトボタンの下 */}
         {accounts.length > 0 && (
-          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30">
+          <div className="absolute top-20 right-4 sm:top-24 sm:right-6 z-30">
             <div className="relative">
               <button
                 onClick={() => setShowAccountMenu(!showAccountMenu)}
@@ -244,4 +265,35 @@ function App() {
   );
 }
 
-export default App;
+function App() {
+  const { user, loading } = useAuth();
+
+  // ローディング中
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 未ログイン時は認証画面を表示
+  if (!user) {
+    return <Auth />;
+  }
+
+  // ログイン済みの場合はメインアプリを表示
+  return <MainApp />;
+}
+
+// AuthProviderでラップしてエクスポート
+export default function AppWithAuth() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}
