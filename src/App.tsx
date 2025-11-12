@@ -12,17 +12,21 @@ type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [account, setAccount] = useState<InstagramAccount | null>(null);
+  const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [records, setRecords] = useState<InstagramRecord[]>([]);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = () => {
-    const loadedAccount = dataService.loadAccount();
+    const loadedAccount = dataService.getActiveAccount();
+    const loadedAccounts = dataService.loadAccounts();
     const loadedRecords = dataService.loadRecords();
 
     setAccount(loadedAccount);
+    setAccounts(loadedAccounts);
     setRecords(loadedRecords);
 
     // アカウントが未設定の場合は設定タブを表示
@@ -33,9 +37,26 @@ function App() {
 
   const handleAccountSave = (newAccount: InstagramAccount) => {
     setAccount(newAccount);
+    loadData(); // アカウント一覧も更新
     if (activeTab === 'settings' && newAccount) {
       setActiveTab('dashboard');
     }
+  };
+
+  const handleAccountSwitch = (accountId: string) => {
+    try {
+      dataService.setActiveAccount(accountId);
+      loadData();
+      setShowAccountMenu(false);
+    } catch (error) {
+      alert('アカウントの切り替えに失敗しました');
+      console.error(error);
+    }
+  };
+
+  const handleAddAccount = () => {
+    setActiveTab('settings');
+    setShowAccountMenu(false);
   };
 
   const handleRecordSave = () => {
@@ -56,12 +77,77 @@ function App() {
       {/* ヘッダー */}
       <header className="instagram-gradient text-white shadow-lg">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Instagram運用レポート</h1>
-          {account && (
-            <p className="text-xs sm:text-sm mt-1 opacity-90">
-              {account.accountName} で運用中
-            </p>
-          )}
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Instagram運用レポート</h1>
+              {account && (
+                <p className="text-xs sm:text-sm mt-1 opacity-90">
+                  {account.accountName} で運用中
+                </p>
+              )}
+            </div>
+
+            {/* アカウント切り替えドロップダウン */}
+            {accounts.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowAccountMenu(!showAccountMenu)}
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm"
+                >
+                  <span className="text-sm sm:text-base">👤</span>
+                  <span className="hidden sm:inline text-sm font-medium">
+                    {accounts.length}アカウント
+                  </span>
+                  <span className="text-xs">▼</span>
+                </button>
+
+                {/* ドロップダウンメニュー */}
+                {showAccountMenu && (
+                  <>
+                    {/* 背景オーバーレイ */}
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowAccountMenu(false)}
+                    />
+
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl z-20 overflow-hidden">
+                      <div className="py-2">
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
+                          アカウント一覧
+                        </div>
+                        {accounts.map((acc) => (
+                          <button
+                            key={acc.accountId}
+                            onClick={() => handleAccountSwitch(acc.accountId)}
+                            className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between ${
+                              account?.accountId === acc.accountId ? 'bg-purple-50' : ''
+                            }`}
+                          >
+                            <div>
+                              <div className="font-medium text-gray-900">{acc.accountName}</div>
+                              <div className="text-xs text-gray-500">ID: {acc.accountId}</div>
+                            </div>
+                            {account?.accountId === acc.accountId && (
+                              <span className="text-purple-600 text-lg">✓</span>
+                            )}
+                          </button>
+                        ))}
+                        <div className="border-t mt-2 pt-2">
+                          <button
+                            onClick={handleAddAccount}
+                            className="w-full text-left px-4 py-3 text-purple-600 hover:bg-purple-50 transition-colors font-medium flex items-center gap-2"
+                          >
+                            <span className="text-lg">+</span>
+                            <span>新しいアカウントを追加</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
