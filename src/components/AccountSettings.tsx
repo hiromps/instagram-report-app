@@ -17,16 +17,35 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
   const [accountName, setAccountName] = useState('');
   const [accountId, setAccountId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadAccounts = async () => {
-    const loadedAccounts = await dataService.loadAccounts();
-    const active = await dataService.getActiveAccount();
-    setAccounts(loadedAccounts);
-    setActiveAccount(active);
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('📚 アカウント一覧を読み込み中...');
 
-    // アカウントが1つもない場合は追加フォームを表示
-    if (loadedAccounts.length === 0) {
-      setShowAddForm(true);
+      const loadedAccounts = await dataService.loadAccounts();
+      const active = await dataService.getActiveAccount();
+
+      console.log('✅ アカウント読み込み完了:', {
+        count: loadedAccounts.length,
+        active: active?.accountName
+      });
+
+      setAccounts(loadedAccounts);
+      setActiveAccount(active);
+
+      // アカウントが1つもない場合は追加フォームを表示
+      if (loadedAccounts.length === 0) {
+        setShowAddForm(true);
+      }
+    } catch (error) {
+      console.error('❌ アカウントの読み込みに失敗:', error);
+      setError('アカウント情報の読み込みに失敗しました。Supabaseの接続を確認してください。');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -145,6 +164,42 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
       }
     }
   };
+
+  // ローディング中の表示
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card title="アカウント管理" subtitle="複数のInstagramアカウントを管理できます">
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <p className="mt-4 text-gray-600">アカウント情報を読み込み中...</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // エラー表示
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card title="アカウント管理" subtitle="複数のInstagramアカウントを管理できます">
+          <div className="text-center py-12">
+            <div className="text-red-600 mb-4">
+              <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <p className="text-gray-900 font-medium mb-2">エラーが発生しました</p>
+            <p className="text-gray-600 text-sm mb-4">{error}</p>
+            <Button onClick={loadAccounts} variant="primary">
+              再読み込み
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
