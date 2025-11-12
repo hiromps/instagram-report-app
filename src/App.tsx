@@ -35,7 +35,7 @@ function App() {
     }
   };
 
-  const handleAccountSave = (newAccount: InstagramAccount) => {
+  const handleAccountSave = (newAccount: InstagramAccount | null) => {
     setAccount(newAccount);
     loadData(); // アカウント一覧も更新
     if (activeTab === 'settings' && newAccount) {
