@@ -43,12 +43,14 @@ class DataService {
         if (accounts.length === 0) {
           newAccount.isActive = true;
           localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID, account.accountId);
+          console.log('Active account ID saved:', account.accountId);
         }
 
         accounts.push(newAccount);
       }
 
       localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
+      console.log('Accounts saved to localStorage:', accounts);
     } catch (error) {
       console.error('アカウント情報の保存に失敗しました:', error);
       throw new Error('アカウント情報の保存に失敗しました');

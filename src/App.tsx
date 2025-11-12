@@ -25,6 +25,14 @@ function App() {
     const loadedAccounts = dataService.loadAccounts();
     const loadedRecords = dataService.loadRecords();
 
+    // デバッグログ
+    console.log('loadData called:', {
+      loadedAccount,
+      loadedAccounts,
+      activeAccountId: localStorage.getItem('activeAccountId'),
+      accountsInStorage: localStorage.getItem('instagramAccounts'),
+    });
+
     setAccount(loadedAccount);
     setAccounts(loadedAccounts);
     setRecords(loadedRecords);
