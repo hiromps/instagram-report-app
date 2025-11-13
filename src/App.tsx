@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
-import type { InstagramAccount, InstagramRecord } from './types';
+import type { InstagramAccount, InstagramRecord, User } from './types';
 import { dataService } from './services/dataService';
+import { authService } from './services/authService';
 import { Dashboard } from './components/Dashboard';
 import { DataInput } from './components/DataInput';
 import { AIReportViewer } from './components/AIReportViewer';
 import { ExportPanel } from './components/ExportPanel';
 import { AccountSettings } from './components/AccountSettings';
+import { Login } from './components/Login';
 
 type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
 
 function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
   // 初期タブをlocalStorageの状態に基づいて設定
   const getInitialTab = (): TabType => {
     const activeAccount = dataService.getActiveAccount();
@@ -23,7 +28,15 @@ function App() {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   useEffect(() => {
-    loadData();
+    // ログイン状態をチェック
+    const currentUser = authService.getCurrentUser();
+    setUser(currentUser);
+
+    if (currentUser) {
+      loadData();
+    }
+
+    setIsLoading(false);
   }, []);
 
   const loadData = () => {
@@ -78,6 +91,23 @@ function App() {
     setActiveTab('dashboard');
   };
 
+  const handleLogin = () => {
+    const currentUser = authService.getCurrentUser();
+    setUser(currentUser);
+    loadData();
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('ログアウトしますか？\n別のアカウントでログインする際に使用できます。')) {
+      authService.logout();
+      setUser(null);
+      setAccount(null);
+      setAccounts([]);
+      setRecords([]);
+      setActiveTab('dashboard');
+    }
+  };
+
   const tabs = [
     { id: 'dashboard' as TabType, label: 'ダッシュボード', icon: '📊', requiresAccount: true },
     { id: 'input' as TabType, label: 'データ入力', icon: '✏️', requiresAccount: true },
@@ -96,6 +126,20 @@ function App() {
     setActiveTab(tabId);
   };
 
+  // ログイン画面を表示
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // ローディング中
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">読み込み中...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
@@ -110,6 +154,16 @@ function App() {
                 </p>
               )}
             </div>
+
+            {/* ログアウトボタン */}
+            <button
+              onClick={handleLogout}
+              className="mr-2 sm:mr-4 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm flex items-center gap-2 text-sm"
+              title="ログアウト"
+            >
+              <span>🚪</span>
+              <span className="hidden sm:inline">ログアウト</span>
+            </button>
 
             {/* アカウント切り替えドロップダウン */}
             {accounts.length > 0 && (

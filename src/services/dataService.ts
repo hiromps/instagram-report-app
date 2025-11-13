@@ -1,4 +1,5 @@
 import type { InstagramAccount, InstagramRecord } from '../types';
+import { authService } from './authService';
 
 const STORAGE_KEYS = {
   ACCOUNTS: 'instagramAccounts',
@@ -8,10 +9,21 @@ const STORAGE_KEYS = {
 } as const;
 
 class DataService {
+  // ユーザー固有のストレージキーを取得
+  private getUserKey(key: string): string {
+    try {
+      return authService.getUserStorageKey(key);
+    } catch (error) {
+      // ログインしていない場合は通常のキーを返す（後方互換性のため）
+      return key;
+    }
+  }
+
   // 全アカウントの読み込み
   loadAccounts(): InstagramAccount[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
+      const key = this.getUserKey(STORAGE_KEYS.ACCOUNTS);
+      const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('アカウント情報の読み込みに失敗しました:', error);
@@ -42,14 +54,16 @@ class DataService {
         // 最初のアカウントの場合は自動的にアクティブに
         if (accounts.length === 0) {
           newAccount.isActive = true;
-          localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID, account.accountId);
+          const activeKey = this.getUserKey(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+          localStorage.setItem(activeKey, account.accountId);
           console.log('Active account ID saved:', account.accountId);
         }
 
         accounts.push(newAccount);
       }
 
-      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
+      const accountsKey = this.getUserKey(STORAGE_KEYS.ACCOUNTS);
+      localStorage.setItem(accountsKey, JSON.stringify(accounts));
       console.log('Accounts saved to localStorage:', accounts);
     } catch (error) {
       console.error('アカウント情報の保存に失敗しました:', error);
@@ -60,7 +74,8 @@ class DataService {
   // アクティブなアカウントの取得
   getActiveAccount(): InstagramAccount | null {
     try {
-      const activeAccountId = localStorage.getItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      const activeKey = this.getUserKey(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      const activeAccountId = localStorage.getItem(activeKey);
       if (!activeAccountId) return null;
 
       const accounts = this.loadAccounts();
@@ -87,8 +102,10 @@ class DataService {
       // 指定されたアカウントをアクティブに
       account.isActive = true;
 
-      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID, accountId);
+      const accountsKey = this.getUserKey(STORAGE_KEYS.ACCOUNTS);
+      const activeKey = this.getUserKey(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      localStorage.setItem(accountsKey, JSON.stringify(accounts));
+      localStorage.setItem(activeKey, accountId);
     } catch (error) {
       console.error('アクティブアカウントの設定に失敗しました:', error);
       throw new Error('アクティブアカウントの設定に失敗しました');
@@ -101,24 +118,27 @@ class DataService {
       const accounts = this.loadAccounts();
       const filteredAccounts = accounts.filter(a => a.accountId !== accountId);
 
-      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(filteredAccounts));
+      const accountsKey = this.getUserKey(STORAGE_KEYS.ACCOUNTS);
+      localStorage.setItem(accountsKey, JSON.stringify(filteredAccounts));
 
       // 削除したアカウントがアクティブだった場合
-      const activeAccountId = localStorage.getItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      const activeKey = this.getUserKey(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      const activeAccountId = localStorage.getItem(activeKey);
       if (activeAccountId === accountId) {
         if (filteredAccounts.length > 0) {
           // 残っているアカウントの最初をアクティブに
           this.setActiveAccount(filteredAccounts[0].accountId);
         } else {
           // アカウントが全て削除された場合
-          localStorage.removeItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+          localStorage.removeItem(activeKey);
         }
       }
 
       // アカウントに紐づく記録も削除
-      const records = this.loadRecords();
+      const records = this.loadAllRecords();
       const filteredRecords = records.filter(r => r.accountId !== accountId);
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(filteredRecords));
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+      localStorage.setItem(recordsKey, JSON.stringify(filteredRecords));
     } catch (error) {
       console.error('アカウントの削除に失敗しました:', error);
       throw new Error('アカウントの削除に失敗しました');
@@ -133,13 +153,14 @@ class DataService {
   // 記録の保存
   saveRecord(record: InstagramRecord): void {
     try {
-      const records = this.loadRecords();
+      const allRecords = this.loadAllRecords();
 
       // 自動計算フィールドを追加
       const enrichedRecord = this.calculateRecordMetrics(record);
 
-      records.push(enrichedRecord);
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
+      allRecords.push(enrichedRecord);
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+      localStorage.setItem(recordsKey, JSON.stringify(allRecords));
     } catch (error) {
       console.error('記録の保存に失敗しました:', error);
       throw new Error('記録の保存に失敗しました');
@@ -149,7 +170,7 @@ class DataService {
   // 記録の更新
   updateRecord(id: string, updatedRecord: Partial<InstagramRecord>): void {
     try {
-      const records = this.loadRecords();
+      const records = this.loadAllRecords();
       const index = records.findIndex(r => r.id === id);
 
       if (index === -1) {
@@ -162,7 +183,8 @@ class DataService {
       };
 
       records[index] = this.calculateRecordMetrics(updated);
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+      localStorage.setItem(recordsKey, JSON.stringify(records));
     } catch (error) {
       console.error('記録の更新に失敗しました:', error);
       throw new Error('記録の更新に失敗しました');
@@ -172,9 +194,10 @@ class DataService {
   // 記録の削除
   deleteRecord(id: string): void {
     try {
-      const records = this.loadRecords();
+      const records = this.loadAllRecords();
       const filtered = records.filter(r => r.id !== id);
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(filtered));
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+      localStorage.setItem(recordsKey, JSON.stringify(filtered));
     } catch (error) {
       console.error('記録の削除に失敗しました:', error);
       throw new Error('記録の削除に失敗しました');
@@ -187,7 +210,8 @@ class DataService {
       const activeAccount = this.getActiveAccount();
       if (!activeAccount) return [];
 
-      const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+      const data = localStorage.getItem(recordsKey);
       const allRecords = data ? JSON.parse(data) : [];
 
       // アクティブアカウントの記録のみフィルタリング
@@ -208,7 +232,8 @@ class DataService {
   // 全アカウントの全記録を読み込み
   loadAllRecords(): InstagramRecord[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.RECORDS);
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+      const data = localStorage.getItem(recordsKey);
       const records = data ? JSON.parse(data) : [];
 
       return records.sort((a: InstagramRecord, b: InstagramRecord) => {
@@ -235,7 +260,8 @@ class DataService {
   // OpenAI APIキーの保存
   saveApiKey(apiKey: string): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+      const apiKeyKey = this.getUserKey(STORAGE_KEYS.API_KEY);
+      localStorage.setItem(apiKeyKey, apiKey);
     } catch (error) {
       console.error('APIキーの保存に失敗しました:', error);
       throw new Error('APIキーの保存に失敗しました');
@@ -245,7 +271,8 @@ class DataService {
   // OpenAI APIキーの読み込み
   loadApiKey(): string | null {
     try {
-      return localStorage.getItem(STORAGE_KEYS.API_KEY);
+      const apiKeyKey = this.getUserKey(STORAGE_KEYS.API_KEY);
+      return localStorage.getItem(apiKeyKey);
     } catch (error) {
       console.error('APIキーの読み込みに失敗しました:', error);
       return null;
@@ -255,7 +282,8 @@ class DataService {
   // OpenAI APIキーの削除
   deleteApiKey(): void {
     try {
-      localStorage.removeItem(STORAGE_KEYS.API_KEY);
+      const apiKeyKey = this.getUserKey(STORAGE_KEYS.API_KEY);
+      localStorage.removeItem(apiKeyKey);
     } catch (error) {
       console.error('APIキーの削除に失敗しました:', error);
     }
@@ -264,9 +292,13 @@ class DataService {
   // データの完全削除（リセット）
   clearAllData(): void {
     try {
-      localStorage.removeItem(STORAGE_KEYS.ACCOUNTS);
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
-      localStorage.removeItem(STORAGE_KEYS.RECORDS);
+      const accountsKey = this.getUserKey(STORAGE_KEYS.ACCOUNTS);
+      const activeKey = this.getUserKey(STORAGE_KEYS.ACTIVE_ACCOUNT_ID);
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+
+      localStorage.removeItem(accountsKey);
+      localStorage.removeItem(activeKey);
+      localStorage.removeItem(recordsKey);
     } catch (error) {
       console.error('データの削除に失敗しました:', error);
       throw new Error('データの削除に失敗しました');
@@ -290,9 +322,12 @@ class DataService {
     try {
       const data = JSON.parse(jsonData);
 
+      const accountsKey = this.getUserKey(STORAGE_KEYS.ACCOUNTS);
+      const recordsKey = this.getUserKey(STORAGE_KEYS.RECORDS);
+
       // 複数アカウント形式
       if (data.accounts && Array.isArray(data.accounts)) {
-        localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(data.accounts));
+        localStorage.setItem(accountsKey, JSON.stringify(data.accounts));
       }
       // 旧形式（単一アカウント）との互換性
       else if (data.account) {
@@ -300,7 +335,7 @@ class DataService {
       }
 
       if (data.records && Array.isArray(data.records)) {
-        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(data.records));
+        localStorage.setItem(recordsKey, JSON.stringify(data.records));
       }
     } catch (error) {
       console.error('データのインポートに失敗しました:', error);
