@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { InstagramRecord } from '../types';
 import { aiService } from '../services/aiService';
 import { statisticsService } from '../services/statisticsService';
@@ -11,19 +11,30 @@ interface AIReportViewerProps {
 }
 
 export const AIReportViewer: React.FC<AIReportViewerProps> = ({ records }) => {
-  const [apiKey, setApiKey] = useState(aiService.getApiKey() || '');
+  const [apiKey, setApiKey] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState<any>(null);
-  const [showApiKeyInput, setShowApiKeyInput] = useState(!aiService.hasApiKey());
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const initializeAIService = async () => {
+      await aiService.initialize();
+      setApiKey(aiService.getApiKey() || '');
+      setShowApiKeyInput(!aiService.hasApiKey());
+      setIsInitialized(true);
+    };
+    initializeAIService();
+  }, []);
 
   const statistics = useMemo(
     () => statisticsService.calculateOverallStatistics(records),
     [records]
   );
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     if (apiKey.trim()) {
-      aiService.setApiKey(apiKey.trim());
+      await aiService.setApiKey(apiKey.trim());
       setShowApiKeyInput(false);
       alert('APIキーを保存しました');
     }
@@ -57,6 +68,16 @@ export const AIReportViewer: React.FC<AIReportViewerProps> = ({ records }) => {
       setIsAnalyzing(false);
     }
   };
+
+  if (!isInitialized) {
+    return (
+      <Card title="AI分析レポート">
+        <div className="text-center py-12 text-gray-500">
+          読み込み中...
+        </div>
+      </Card>
+    );
+  }
 
   if (records.length === 0) {
     return (

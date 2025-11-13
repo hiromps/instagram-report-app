@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { InstagramAccount, InstagramRecord, User } from './types';
+import type { InstagramAccount, InstagramRecord } from './types';
+import type { User } from '@supabase/supabase-js';
 import { dataService } from './services/dataService';
 import { authService } from './services/authService';
 import { Dashboard } from './components/Dashboard';
@@ -14,66 +15,85 @@ type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // 初期タブをlocalStorageの状態に基づいて設定
-  const getInitialTab = (): TabType => {
-    const activeAccount = dataService.getActiveAccount();
-    return activeAccount ? 'dashboard' : 'settings';
-  };
-
-  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [account, setAccount] = useState<InstagramAccount | null>(null);
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [records, setRecords] = useState<InstagramRecord[]>([]);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   useEffect(() => {
-    // ログイン状態をチェック
-    const currentUser = authService.getCurrentUser();
-    setUser(currentUser);
+    const initializeAuth = async () => {
+      try {
+        // 認証セッションを初期化
+        const currentUser = await authService.initialize();
+        setUser(currentUser);
 
-    if (currentUser) {
-      loadData();
-    }
+        if (currentUser) {
+          await loadData();
+        }
+      } catch (error) {
+        console.error('認証の初期化に失敗しました:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    setIsLoading(false);
-  }, []);
+    initializeAuth();
 
-  const loadData = () => {
-    const loadedAccount = dataService.getActiveAccount();
-    const loadedAccounts = dataService.loadAccounts();
-    const loadedRecords = dataService.loadRecords();
-
-    // デバッグログ
-    console.log('loadData called:', {
-      loadedAccount,
-      loadedAccounts,
-      activeAccountId: localStorage.getItem('activeAccountId'),
-      accountsInStorage: localStorage.getItem('instagramAccounts'),
+    // 認証状態の変更を監視
+    const unsubscribe = authService.onAuthStateChange(async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        await loadData();
+      } else {
+        setAccount(null);
+        setAccounts([]);
+        setRecords([]);
+      }
     });
 
-    setAccount(loadedAccount);
-    setAccounts(loadedAccounts);
-    setRecords(loadedRecords);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
-    // アカウントが未設定の場合は設定タブを表示
-    if (!loadedAccount) {
-      setActiveTab('settings');
+  const loadData = async () => {
+    try {
+      const loadedAccount = await dataService.getActiveAccount();
+      const loadedAccounts = await dataService.loadAccounts();
+      const loadedRecords = await dataService.loadRecords();
+
+      console.log('loadData called:', {
+        loadedAccount,
+        loadedAccounts: loadedAccounts.length,
+        loadedRecords: loadedRecords.length,
+      });
+
+      setAccount(loadedAccount);
+      setAccounts(loadedAccounts);
+      setRecords(loadedRecords);
+
+      // アカウントが未設定の場合は設定タブを表示
+      if (!loadedAccount) {
+        setActiveTab('settings');
+      }
+    } catch (error) {
+      console.error('データの読み込みに失敗しました:', error);
     }
   };
 
-  const handleAccountSave = (newAccount: InstagramAccount | null) => {
+  const handleAccountSave = async (newAccount: InstagramAccount | null) => {
     setAccount(newAccount);
-    loadData(); // アカウント一覧も更新
+    await loadData(); // アカウント一覧も更新
     if (activeTab === 'settings' && newAccount) {
       setActiveTab('dashboard');
     }
   };
 
-  const handleAccountSwitch = (accountId: string) => {
+  const handleAccountSwitch = async (accountId: string) => {
     try {
-      dataService.setActiveAccount(accountId);
-      loadData();
+      await dataService.setActiveAccount(accountId);
+      await loadData();
       setShowAccountMenu(false);
     } catch (error) {
       alert('アカウントの切り替えに失敗しました');
@@ -86,25 +106,30 @@ function App() {
     setShowAccountMenu(false);
   };
 
-  const handleRecordSave = () => {
-    loadData();
+  const handleRecordSave = async () => {
+    await loadData();
     setActiveTab('dashboard');
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const currentUser = authService.getCurrentUser();
     setUser(currentUser);
-    loadData();
+    await loadData();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm('ログアウトしますか？\n別のアカウントでログインする際に使用できます。')) {
-      authService.logout();
-      setUser(null);
-      setAccount(null);
-      setAccounts([]);
-      setRecords([]);
-      setActiveTab('dashboard');
+      try {
+        await authService.logout();
+        setUser(null);
+        setAccount(null);
+        setAccounts([]);
+        setRecords([]);
+        setActiveTab('dashboard');
+      } catch (error) {
+        console.error('ログアウトに失敗しました:', error);
+        alert('ログアウトに失敗しました');
+      }
     }
   };
 
@@ -274,14 +299,6 @@ function App() {
           <AccountSettings onSave={handleAccountSave} onAccountSwitch={loadData} />
         )}
       </main>
-
-      {/* フッター */}
-      <footer className="bg-white border-t mt-12 py-6">
-        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
-          <p>Instagram運用レポートアプリ</p>
-          <p className="mt-1">データは全てローカルに保存されます</p>
-        </div>
-      </footer>
     </div>
   );
 }

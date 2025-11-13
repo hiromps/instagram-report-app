@@ -22,14 +22,15 @@ class AIService {
   private apiKey: string | null = null;
   private apiEndpoint = 'https://api.openai.com/v1/chat/completions';
 
-  constructor() {
-    this.apiKey = dataService.loadApiKey();
+  // APIキーを初期化（async）
+  async initialize(): Promise<void> {
+    this.apiKey = await dataService.loadApiKey();
   }
 
   // APIキーを設定
-  setApiKey(key: string): void {
+  async setApiKey(key: string): Promise<void> {
     this.apiKey = key;
-    dataService.saveApiKey(key);
+    await dataService.saveApiKey(key);
   }
 
   // APIキーを取得

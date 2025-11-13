@@ -18,9 +18,9 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
   const [accountId, setAccountId] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadAccounts = () => {
-    const loadedAccounts = dataService.loadAccounts();
-    const active = dataService.getActiveAccount();
+  const loadAccounts = async () => {
+    const loadedAccounts = await dataService.loadAccounts();
+    const active = await dataService.getActiveAccount();
     setAccounts(loadedAccounts);
     setActiveAccount(active);
 
@@ -34,7 +34,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     loadAccounts();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!accountName.trim() || !accountId.trim()) {
@@ -59,10 +59,10 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
         updatedAt: new Date().toISOString(),
       };
 
-      dataService.saveAccount(account);
+      await dataService.saveAccount(account);
 
       // 保存後、最新のアカウント情報を取得
-      const savedAccount = dataService.getActiveAccount();
+      const savedAccount = await dataService.getActiveAccount();
       console.log('Account saved, retrieved account:', savedAccount);
 
       // フォームをリセット
@@ -77,7 +77,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
       }
 
       // アカウント一覧を再読み込み
-      loadAccounts();
+      await loadAccounts();
 
       alert('アカウントを追加しました');
     } catch (error) {
@@ -88,12 +88,12 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     }
   };
 
-  const handleSwitchAccount = (accountId: string) => {
+  const handleSwitchAccount = async (accountId: string) => {
     try {
-      dataService.setActiveAccount(accountId);
-      loadAccounts();
+      await dataService.setActiveAccount(accountId);
+      await loadAccounts();
 
-      const newActiveAccount = dataService.getActiveAccount();
+      const newActiveAccount = await dataService.getActiveAccount();
       onSave(newActiveAccount);
 
       if (onAccountSwitch) {
@@ -107,7 +107,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     }
   };
 
-  const handleDeleteAccount = (accountId: string) => {
+  const handleDeleteAccount = async (accountId: string) => {
     const account = accounts.find(a => a.accountId === accountId);
     if (!account) return;
 
@@ -117,10 +117,10 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
       )
     ) {
       try {
-        dataService.deleteAccount(accountId);
-        loadAccounts();
+        await dataService.deleteAccount(accountId);
+        await loadAccounts();
 
-        const newActiveAccount = dataService.getActiveAccount();
+        const newActiveAccount = await dataService.getActiveAccount();
         onSave(newActiveAccount);
 
         alert('アカウントを削除しました');
@@ -131,20 +131,25 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
     }
   };
 
-  const handleClearAllData = () => {
+  const handleClearAllData = async () => {
     if (
       window.confirm(
         '本当に全てのデータを削除しますか？\n全てのアカウントと記録が削除されます。\nこの操作は取り消せません。'
       )
     ) {
-      dataService.clearAllData();
-      setAccounts([]);
-      setActiveAccount(null);
-      setAccountName('');
-      setAccountId('');
-      setShowAddForm(true);
-      onSave(null);
-      alert('全てのデータを削除しました');
+      try {
+        await dataService.clearAllData();
+        setAccounts([]);
+        setActiveAccount(null);
+        setAccountName('');
+        setAccountId('');
+        setShowAddForm(true);
+        onSave(null);
+        alert('全てのデータを削除しました');
+      } catch (error) {
+        alert('削除に失敗しました');
+        console.error(error);
+      }
     }
   };
 
