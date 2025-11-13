@@ -299,13 +299,6 @@ function App() {
           <AccountSettings onSave={handleAccountSave} onAccountSwitch={loadData} />
         )}
       </main>
-
-      {/* フッター */}
-      <footer className="bg-white border-t mt-12 py-6">
-        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
-          <p>Instagram運用レポートアプリ</p>
-        </div>
-      </footer>
     </div>
   );
 }
