@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { InstagramAccount, InstagramRecord } from './types';
 import type { User } from '@supabase/supabase-js';
 import { dataService } from './services/dataService';
 import { authService } from './services/authService';
+import { aggregateRecordsByDate } from './utils/recordAggregation';
 import { Dashboard } from './components/Dashboard';
 import { DataInput } from './components/DataInput';
 import { AIReportViewer } from './components/AIReportViewer';
 import { ExportPanel } from './components/ExportPanel';
 import { AccountSettings } from './components/AccountSettings';
+import { RecordsList } from './components/RecordsList';
 import { Login } from './components/Login';
 
-type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
+type TabType = 'dashboard' | 'records' | 'input' | 'ai' | 'export' | 'settings';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -108,8 +110,26 @@ function App() {
 
   const handleRecordSave = async () => {
     await loadData();
-    setActiveTab('dashboard');
+    setActiveTab('records');
   };
+
+  const handleRecordDelete = async (id: string) => {
+    if (window.confirm('この記録を削除しますか？')) {
+      try {
+        await dataService.deleteRecord(id);
+        await loadData();
+      } catch (error) {
+        alert('記録の削除に失敗しました');
+        console.error(error);
+      }
+    }
+  };
+
+  // 日次集約データを作成
+  const aggregatedRecords = useMemo(
+    () => aggregateRecordsByDate(records),
+    [records]
+  );
 
   const handleLogin = async () => {
     const currentUser = authService.getCurrentUser();
@@ -135,6 +155,7 @@ function App() {
 
   const tabs = [
     { id: 'dashboard' as TabType, label: 'ダッシュボード', icon: '📊', requiresAccount: true },
+    { id: 'records' as TabType, label: '記録一覧', icon: '📋', requiresAccount: true },
     { id: 'input' as TabType, label: 'データ入力', icon: '✏️', requiresAccount: true },
     { id: 'ai' as TabType, label: 'AI分析', icon: '🤖', requiresAccount: true },
     { id: 'export' as TabType, label: 'エクスポート', icon: '📥', requiresAccount: true },
@@ -285,6 +306,12 @@ function App() {
       {/* メインコンテンツ */}
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         {activeTab === 'dashboard' && <Dashboard records={records} />}
+        {activeTab === 'records' && (
+          <RecordsList
+            aggregatedRecords={aggregatedRecords}
+            onDelete={handleRecordDelete}
+          />
+        )}
         {activeTab === 'input' && (
           <DataInput account={account} onSave={handleRecordSave} />
         )}

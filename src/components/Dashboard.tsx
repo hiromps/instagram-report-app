@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { InstagramRecord } from '../types';
 import { statisticsService } from '../services/statisticsService';
+import { aggregateRecordsByDate, convertAggregatedRecordsToInstagramRecords } from '../utils/recordAggregation';
 import { Card } from './Card';
 import { FollowerGrowthChart } from './FollowerGrowthChart';
 
@@ -9,14 +10,26 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
-  const statistics = useMemo(
-    () => statisticsService.calculateOverallStatistics(records),
+  // 日次集約データを作成（同じ日付の記録を合計）
+  const aggregatedRecords = useMemo(
+    () => aggregateRecordsByDate(records),
     [records]
   );
 
+  // 集約データをInstagramRecord形式に変換して統計計算に使用
+  const aggregatedAsRecords = useMemo(
+    () => convertAggregatedRecordsToInstagramRecords(aggregatedRecords),
+    [aggregatedRecords]
+  );
+
+  const statistics = useMemo(
+    () => statisticsService.calculateOverallStatistics(aggregatedAsRecords),
+    [aggregatedAsRecords]
+  );
+
   const trend = useMemo(
-    () => statisticsService.calculateGrowthTrend(records),
-    [records]
+    () => statisticsService.calculateGrowthTrend(aggregatedAsRecords),
+    [aggregatedAsRecords]
   );
 
   const StatCard: React.FC<{
@@ -55,7 +68,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
         <StatCard
           title="総記録数"
           value={`${statistics.totalRecords}日`}
-          subtitle="運用日数"
+          subtitle={`全${records.length}件の記録`}
         />
         <StatCard
           title="総フォロワー増加"
@@ -100,7 +113,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
         </div>
       </Card>
 
-      <FollowerGrowthChart records={records} />
+      <FollowerGrowthChart records={aggregatedAsRecords} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card title="ベストパフォーマンス">
@@ -112,7 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
             {statistics.bestPerformanceDate && (
               <p className="text-sm text-gray-500">
                 {
-                  records.find(r => r.date === statistics.bestPerformanceDate)
+                  aggregatedAsRecords.find(r => r.date === statistics.bestPerformanceDate)
                     ?.followerGrowth || 0
                 }
                 人増加
@@ -130,7 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
             {statistics.worstPerformanceDate && (
               <p className="text-sm text-gray-500">
                 {
-                  records.find(r => r.date === statistics.worstPerformanceDate)
+                  aggregatedAsRecords.find(r => r.date === statistics.worstPerformanceDate)
                     ?.followerGrowth || 0
                 }
                 人増加
