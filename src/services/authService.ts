@@ -148,7 +148,7 @@ class AuthService {
   // 認証状態の変更を監視
   onAuthStateChange(callback: (user: User | null) => void): () => void {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         this.currentUser = session?.user || null;
         callback(this.currentUser);
       }

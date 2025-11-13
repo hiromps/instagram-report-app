@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { InstagramAccount, InstagramRecord, User } from './types';
+import type { InstagramAccount, InstagramRecord } from './types';
+import type { User } from '@supabase/supabase-js';
 import { dataService } from './services/dataService';
 import { authService } from './services/authService';
 import { Dashboard } from './components/Dashboard';
@@ -14,14 +15,7 @@ type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // 初期タブをlocalStorageの状態に基づいて設定
-  const getInitialTab = (): TabType => {
-    const activeAccount = dataService.getActiveAccount();
-    return activeAccount ? 'dashboard' : 'settings';
-  };
-
-  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [account, setAccount] = useState<InstagramAccount | null>(null);
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [records, setRecords] = useState<InstagramRecord[]>([]);
