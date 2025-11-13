@@ -10,7 +10,13 @@ import { AccountSettings } from './components/AccountSettings';
 type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  // 初期タブをlocalStorageの状態に基づいて設定
+  const getInitialTab = (): TabType => {
+    const activeAccount = dataService.getActiveAccount();
+    return activeAccount ? 'dashboard' : 'settings';
+  };
+
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
   const [account, setAccount] = useState<InstagramAccount | null>(null);
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [records, setRecords] = useState<InstagramRecord[]>([]);
@@ -73,12 +79,22 @@ function App() {
   };
 
   const tabs = [
-    { id: 'dashboard' as TabType, label: 'ダッシュボード', icon: '📊' },
-    { id: 'input' as TabType, label: 'データ入力', icon: '✏️' },
-    { id: 'ai' as TabType, label: 'AI分析', icon: '🤖' },
-    { id: 'export' as TabType, label: 'エクスポート', icon: '📥' },
-    { id: 'settings' as TabType, label: '設定', icon: '⚙️' },
+    { id: 'dashboard' as TabType, label: 'ダッシュボード', icon: '📊', requiresAccount: true },
+    { id: 'input' as TabType, label: 'データ入力', icon: '✏️', requiresAccount: true },
+    { id: 'ai' as TabType, label: 'AI分析', icon: '🤖', requiresAccount: true },
+    { id: 'export' as TabType, label: 'エクスポート', icon: '📥', requiresAccount: true },
+    { id: 'settings' as TabType, label: '設定', icon: '⚙️', requiresAccount: false },
   ];
+
+  const handleTabClick = (tabId: TabType) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab?.requiresAccount && !account) {
+      alert('アカウントを設定してください');
+      setActiveTab('settings');
+      return;
+    }
+    setActiveTab(tabId);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -163,20 +179,26 @@ function App() {
       <nav className="bg-white shadow-md sticky top-0 z-10">
         <div className="container mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex space-x-0.5 sm:space-x-1 overflow-x-auto scrollbar-hide">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-sm sm:text-base font-medium whitespace-nowrap transition-all flex items-center gap-1 sm:gap-2 ${
-                  activeTab === tab.id
-                    ? 'border-b-2 border-purple-600 text-purple-600 bg-purple-50'
-                    : 'text-gray-600 hover:text-purple-600 hover:bg-gray-50'
-                }`}
-              >
-                <span className="text-base sm:text-lg">{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              const isDisabled = tab.requiresAccount && !account;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  disabled={isDisabled}
+                  className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-sm sm:text-base font-medium whitespace-nowrap transition-all flex items-center gap-1 sm:gap-2 ${
+                    activeTab === tab.id
+                      ? 'border-b-2 border-purple-600 text-purple-600 bg-purple-50'
+                      : isDisabled
+                      ? 'text-gray-400 cursor-not-allowed opacity-50'
+                      : 'text-gray-600 hover:text-purple-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-base sm:text-lg">{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </nav>
