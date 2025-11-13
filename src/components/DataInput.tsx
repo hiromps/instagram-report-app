@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import type { InstagramRecord, InstagramAccount } from '../types';
 import { dataService } from '../services/dataService';
+import { imageAnalysisService } from '../services/imageAnalysisService';
 import { Card } from './Card';
 import { Input } from './Input';
 import { Button } from './Button';
+import { ImageUpload } from './ImageUpload';
 import { format } from 'date-fns';
 
 interface DataInputProps {
@@ -29,6 +31,10 @@ export const DataInput: React.FC<DataInputProps> = ({ account, onSave }) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [beforeImage, setBeforeImage] = useState<File | null>(null);
+  const [afterImage, setAfterImage] = useState<File | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -42,6 +48,54 @@ export const DataInput: React.FC<DataInputProps> = ({ account, onSave }) => {
         return newErrors;
       });
     }
+  };
+
+  const handleImageSelect = (file: File, imageType: 'before' | 'after') => {
+    if (imageType === 'before') {
+      setBeforeImage(file);
+    } else {
+      setAfterImage(file);
+    }
+  };
+
+  const handleAnalyzeImages = async () => {
+    if (!beforeImage || !afterImage) {
+      alert('運用前と運用後の両方の画像をアップロードしてください');
+      return;
+    }
+
+    setIsAnalyzing(true);
+
+    try {
+      const { before, after } = await imageAnalysisService.analyzeBothScreenshots(
+        beforeImage,
+        afterImage
+      );
+
+      // 解析結果をフォームに反映
+      const updateData: Partial<typeof formData> = {};
+
+      if (before.posts !== undefined) updateData.postsBefore = String(before.posts);
+      if (before.followers !== undefined) updateData.followersBefore = String(before.followers);
+      if (before.following !== undefined) updateData.followingBefore = String(before.following);
+
+      if (after.posts !== undefined) updateData.postsAfter = String(after.posts);
+      if (after.followers !== undefined) updateData.followersAfter = String(after.followers);
+      if (after.following !== undefined) updateData.followingAfter = String(after.following);
+
+      setFormData(prev => ({ ...prev, ...updateData }));
+
+      alert('画像の解析が完了しました！データが自動入力されました。');
+    } catch (error) {
+      console.error('画像解析エラー:', error);
+      alert(error instanceof Error ? error.message : '画像の解析に失敗しました');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleToggleImageUpload = () => {
+    setShowImageUpload(!showImageUpload);
   };
 
   const validate = (): boolean => {
@@ -121,6 +175,64 @@ export const DataInput: React.FC<DataInputProps> = ({ account, onSave }) => {
   return (
     <Card title="日次記録" subtitle="運用データを記録します">
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* AI画像解析セクション */}
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                <span>🤖</span>
+                AI画像解析
+              </h4>
+              <p className="text-xs text-gray-600 mt-1">
+                スクリーンショットをアップロードすると、AIが自動でデータを読み取ります
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleToggleImageUpload}
+            >
+              {showImageUpload ? '閉じる' : '画像をアップロード'}
+            </Button>
+          </div>
+
+          {showImageUpload && (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ImageUpload
+                  imageType="before"
+                  onImageSelect={handleImageSelect}
+                  isAnalyzing={isAnalyzing}
+                />
+                <ImageUpload
+                  imageType="after"
+                  onImageSelect={handleImageSelect}
+                  isAnalyzing={isAnalyzing}
+                />
+              </div>
+
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  onClick={handleAnalyzeImages}
+                  disabled={!beforeImage || !afterImage || isAnalyzing}
+                  className="w-full md:w-auto"
+                >
+                  {isAnalyzing ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                      解析中...
+                    </span>
+                  ) : (
+                    '画像を解析してデータを自動入力'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div>
           <Input
             label="記録日付"
