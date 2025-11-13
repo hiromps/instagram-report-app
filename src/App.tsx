@@ -1,29 +1,56 @@
 import { useState, useEffect } from 'react';
-import type { InstagramAccount, InstagramRecord } from './types';
+import type { InstagramAccount, InstagramRecord, User } from './types';
 import { dataService } from './services/dataService';
+import { authService } from './services/authService';
 import { Dashboard } from './components/Dashboard';
 import { DataInput } from './components/DataInput';
 import { AIReportViewer } from './components/AIReportViewer';
 import { ExportPanel } from './components/ExportPanel';
 import { AccountSettings } from './components/AccountSettings';
+import { Login } from './components/Login';
 
 type TabType = 'dashboard' | 'input' | 'ai' | 'export' | 'settings';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 初期タブをlocalStorageの状態に基づいて設定
+  const getInitialTab = (): TabType => {
+    const activeAccount = dataService.getActiveAccount();
+    return activeAccount ? 'dashboard' : 'settings';
+  };
+
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
   const [account, setAccount] = useState<InstagramAccount | null>(null);
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [records, setRecords] = useState<InstagramRecord[]>([]);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   useEffect(() => {
-    loadData();
+    // ログイン状態をチェック
+    const currentUser = authService.getCurrentUser();
+    setUser(currentUser);
+
+    if (currentUser) {
+      loadData();
+    }
+
+    setIsLoading(false);
   }, []);
 
   const loadData = () => {
     const loadedAccount = dataService.getActiveAccount();
     const loadedAccounts = dataService.loadAccounts();
     const loadedRecords = dataService.loadRecords();
+
+    // デバッグログ
+    console.log('loadData called:', {
+      loadedAccount,
+      loadedAccounts,
+      activeAccountId: localStorage.getItem('activeAccountId'),
+      accountsInStorage: localStorage.getItem('instagramAccounts'),
+    });
 
     setAccount(loadedAccount);
     setAccounts(loadedAccounts);
@@ -64,13 +91,54 @@ function App() {
     setActiveTab('dashboard');
   };
 
+  const handleLogin = () => {
+    const currentUser = authService.getCurrentUser();
+    setUser(currentUser);
+    loadData();
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('ログアウトしますか？\n別のアカウントでログインする際に使用できます。')) {
+      authService.logout();
+      setUser(null);
+      setAccount(null);
+      setAccounts([]);
+      setRecords([]);
+      setActiveTab('dashboard');
+    }
+  };
+
   const tabs = [
-    { id: 'dashboard' as TabType, label: 'ダッシュボード', icon: '📊' },
-    { id: 'input' as TabType, label: 'データ入力', icon: '✏️' },
-    { id: 'ai' as TabType, label: 'AI分析', icon: '🤖' },
-    { id: 'export' as TabType, label: 'エクスポート', icon: '📥' },
-    { id: 'settings' as TabType, label: '設定', icon: '⚙️' },
+    { id: 'dashboard' as TabType, label: 'ダッシュボード', icon: '📊', requiresAccount: true },
+    { id: 'input' as TabType, label: 'データ入力', icon: '✏️', requiresAccount: true },
+    { id: 'ai' as TabType, label: 'AI分析', icon: '🤖', requiresAccount: true },
+    { id: 'export' as TabType, label: 'エクスポート', icon: '📥', requiresAccount: true },
+    { id: 'settings' as TabType, label: '設定', icon: '⚙️', requiresAccount: false },
   ];
+
+  const handleTabClick = (tabId: TabType) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab?.requiresAccount && !account) {
+      alert('アカウントを設定してください');
+      setActiveTab('settings');
+      return;
+    }
+    setActiveTab(tabId);
+  };
+
+  // ログイン画面を表示
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // ローディング中
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">読み込み中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,6 +154,16 @@ function App() {
                 </p>
               )}
             </div>
+
+            {/* ログアウトボタン */}
+            <button
+              onClick={handleLogout}
+              className="mr-2 sm:mr-4 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm flex items-center gap-2 text-sm"
+              title="ログアウト"
+            >
+              <span>🚪</span>
+              <span className="hidden sm:inline">ログアウト</span>
+            </button>
 
             {/* アカウント切り替えドロップダウン */}
             {accounts.length > 0 && (
@@ -155,20 +233,26 @@ function App() {
       <nav className="bg-white shadow-md sticky top-0 z-10">
         <div className="container mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex space-x-0.5 sm:space-x-1 overflow-x-auto scrollbar-hide">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-sm sm:text-base font-medium whitespace-nowrap transition-all flex items-center gap-1 sm:gap-2 ${
-                  activeTab === tab.id
-                    ? 'border-b-2 border-purple-600 text-purple-600 bg-purple-50'
-                    : 'text-gray-600 hover:text-purple-600 hover:bg-gray-50'
-                }`}
-              >
-                <span className="text-base sm:text-lg">{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              const isDisabled = tab.requiresAccount && !account;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  disabled={isDisabled}
+                  className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-sm sm:text-base font-medium whitespace-nowrap transition-all flex items-center gap-1 sm:gap-2 ${
+                    activeTab === tab.id
+                      ? 'border-b-2 border-purple-600 text-purple-600 bg-purple-50'
+                      : isDisabled
+                      ? 'text-gray-400 cursor-not-allowed opacity-50'
+                      : 'text-gray-600 hover:text-purple-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-base sm:text-lg">{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </nav>

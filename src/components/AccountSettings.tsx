@@ -60,7 +60,10 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
       };
 
       dataService.saveAccount(account);
-      loadAccounts();
+
+      // 保存後、最新のアカウント情報を取得
+      const savedAccount = dataService.getActiveAccount();
+      console.log('Account saved, retrieved account:', savedAccount);
 
       // フォームをリセット
       setAccountName('');
@@ -69,8 +72,12 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onSave, onAcco
 
       // 最初のアカウントの場合はonSaveを呼ぶ
       if (accounts.length === 0) {
-        onSave(account);
+        console.log('First account, calling onSave with:', savedAccount);
+        onSave(savedAccount);
       }
+
+      // アカウント一覧を再読み込み
+      loadAccounts();
 
       alert('アカウントを追加しました');
     } catch (error) {

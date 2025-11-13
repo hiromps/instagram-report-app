@@ -1,5 +1,13 @@
 // Instagram運用データの型定義
 
+// ユーザー認証関連
+export interface User {
+  email: string;
+  displayName?: string;
+  createdAt: string;
+  lastLoginAt: string;
+}
+
 export interface InstagramAccount {
   accountName: string;
   accountId: string;
