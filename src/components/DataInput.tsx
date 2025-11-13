@@ -57,7 +57,7 @@ export const DataInput: React.FC<DataInputProps> = ({ account, onSave }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validate()) {
@@ -90,7 +90,7 @@ export const DataInput: React.FC<DataInputProps> = ({ account, onSave }) => {
         accountId: account.accountId,
       };
 
-      dataService.saveRecord(record);
+      await dataService.saveRecord(record);
 
       // フォームをリセット
       setFormData({

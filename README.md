@@ -1,34 +1,40 @@
 # Instagram運用レポートアプリ
 
-Instagram の自動運用ツールで得られたフォロワー増加データをトラッキングし、AI を活用した分析とアドバイスを提供するSaaSアプリケーションです。
+Instagram の自動運用ツールで得られたフォロワー増加データをトラッキングし、AI を活用した分析とアドバイスを提供するWebアプリケーションです。
 
 ## 主な機能
 
 ### ✨ 機能一覧
 
+- **ユーザー認証**: メールアドレスとパスワードでの安全なログイン
+- **複数アカウント管理**: 複数のInstagramアカウントを切り替えて管理
 - **日次運用データの記録**: フォロワー数、フォロー数、いいね数などの詳細な記録
 - **フォロワー増加トレンド分析**: Chart.jsを使った視覚的なグラフ表示
 - **AI による運用分析**: OpenAI GPT-4を活用した詳細な分析とアドバイス
 - **多様なエクスポート機能**: CSV / JSON / PDF 形式でのデータエクスポート
-- **ローカルデータ保存**: ブラウザのLocalStorageを使用したプライバシー保護
+- **安全なデータ管理**: Supabaseによる暗号化とRow Level Security
 
 ### 🎯 特徴
 
-- **データベース不要**: 全てのデータはブラウザのLocalStorageに保存
-- **ログイン不要**: アカウント登録やログインなしで使用可能
-- **プライバシー重視**: データは外部サーバーに送信されません
-- **チーム運用対応設計**: 将来的な複数ユーザー対応を見据えた設計
+- **安全な認証**: Supabase Authenticationによる堅牢な認証システム
+- **データ分離**: ユーザーごとのデータを完全に分離（Row Level Security）
+- **クラウド同期**: どのデバイスからでもアクセス可能
+- **プライバシー重視**: ユーザーデータは暗号化して安全に保存
+- **スケーラブル**: 複数ユーザー・複数アカウント対応
 
 ## 技術スタック
 
 ### フロントエンド
-- **React 18** + **TypeScript**: モダンなUI構築
+- **React 19** + **TypeScript**: モダンなUI構築
 - **Vite**: 高速な開発環境
 - **Tailwind CSS**: レスポンシブデザイン
 - **Chart.js**: グラフ表示
 
-### データ管理
-- **LocalStorage API**: ブラウザのローカルストレージ
+### バックエンド
+- **Supabase**: BaaS（Backend as a Service）
+  - **Authentication**: Email/Password認証
+  - **PostgreSQL Database**: リレーショナルデータベース
+  - **Row Level Security (RLS)**: ユーザーごとのデータ分離
 - **Papa Parse**: CSV処理
 - **jsPDF**: PDFエクスポート
 
@@ -37,29 +43,44 @@ Instagram の自動運用ツールで得られたフォロワー増加データ�
 
 ## セットアップ
 
-### 必要要件
+### 前提条件
 
 - Node.js 18以上
 - npm または yarn
+- Supabaseアカウント
 
 ### インストール
 
-1. リポジトリをクローン:
-```bash
-cd instagram-report-app
-```
-
-2. 依存関係をインストール:
+1. 依存関係をインストール:
 ```bash
 npm install
 ```
 
-3. 開発サーバーを起動:
+2. Supabaseのセットアップ
+
+詳細な手順は **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** を参照してください。
+
+**概要:**
+- Supabaseプロジェクトを作成
+- `.env`ファイルを作成して環境変数を設定
+- SQLマイグレーションを実行
+- Row Level Securityポリシーを設定
+
+3. 環境変数の設定
+
+`.env`ファイルをプロジェクトルートに作成：
+
+```env
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+4. 開発サーバーを起動:
 ```bash
 npm run dev
 ```
 
-4. ブラウザで `http://localhost:5173` を開く
+5. ブラウザで `http://localhost:5173` を開く
 
 ### ビルド
 
@@ -72,14 +93,21 @@ npm run build
 
 ## 使い方
 
-### 1. アカウント設定
+### 1. ユーザー登録とログイン
+
+1. 新規登録画面でメールアドレスとパスワードを入力
+2. アカウントを作成してログイン
+
+### 2. Instagramアカウント設定
 
 初回起動時に「設定」タブからInstagramアカウント情報を登録します。
 
 - アカウント名（例: @myaccount）
 - アカウントID（Instagram のユーザーID）
 
-### 2. データ入力
+複数のアカウントを追加して切り替えることも可能です。
+
+### 3. データ入力
 
 「データ入力」タブから日次の運用データを記録します。
 
@@ -100,7 +128,7 @@ npm run build
 - 運用時間（分）
 - メモ
 
-### 3. ダッシュボード
+### 4. ダッシュボード
 
 「ダッシュボード」タブで以下の情報を確認できます。
 
@@ -111,7 +139,7 @@ npm run build
 - フォロワー増加トレンドグラフ
 - ベストパフォーマンス日
 
-### 4. AI分析
+### 5. AI分析
 
 「AI分析」タブでOpenAI APIを使った詳細な分析を実行できます。
 
@@ -128,7 +156,7 @@ npm run build
 - 推奨アクション
 - 次のステップ
 
-### 5. エクスポート
+### 6. エクスポート
 
 「エクスポート」タブからデータをエクスポートできます。
 
@@ -147,21 +175,29 @@ AI分析機能を使用するには、OpenAI APIキーが必要です。
 3. 「API Keys」セクションから新しいAPIキーを生成
 4. アプリの「AI分析」タブでAPIキーを設定
 
-**注意**: APIキーはブラウザのLocalStorageに保存され、外部に送信されません。
+**注意**: APIキーはSupabaseデータベースに暗号化されて保存されます。
 
-## データ管理
+## データ管理とセキュリティ
 
 ### データの保存場所
 
-全てのデータはブラウザのLocalStorageに保存されます。
+全てのデータはSupabaseのPostgreSQLデータベースに安全に保存されます。
 
-- **アカウント情報**: `instagramAccount`
-- **運用記録**: `instagramRecords`
-- **APIキー**: `openaiApiKey`
+- **ユーザー認証情報**: Supabase Authentication
+- **アカウント情報**: `instagram_accounts` テーブル
+- **運用記録**: `instagram_records` テーブル
+- **ユーザー設定**: `user_settings` テーブル
+
+### セキュリティ機能
+
+- **暗号化**: 全ての通信はHTTPS経由で暗号化
+- **Row Level Security (RLS)**: ユーザーごとのデータを完全に分離
+- **認証**: Supabase Authenticationによる安全な認証
+- **パスワードハッシュ化**: パスワードは暗号化されて保存
 
 ### データのバックアップ
 
-重要なデータは定期的にエクスポートしてバックアップすることをお勧めします。
+Supabaseは自動バックアップ機能を提供していますが、重要なデータは定期的にエクスポートすることを推奨します。
 
 1. 「エクスポート」タブを開く
 2. 「JSON形式」でエクスポート
@@ -175,9 +211,18 @@ AI分析機能を使用するには、OpenAI APIキーが必要です。
 
 ## トラブルシューティング
 
-### データが消えた
+### ログインできない
 
-ブラウザのキャッシュをクリアすると、LocalStorageのデータも削除されます。定期的なバックアップを推奨します。
+- 環境変数（`.env`）が正しく設定されているか確認
+- Supabaseプロジェクトが正しくセットアップされているか確認
+- メールアドレスとパスワードが正しいか確認
+- ブラウザのコンソールでエラーメッセージを確認
+
+### データが表示されない
+
+- ログインしているユーザーが正しいか確認
+- Supabaseダッシュボードでデータが保存されているか確認
+- Row Level Securityポリシーが正しく設定されているか確認
 
 ### グラフが表示されない
 
@@ -189,6 +234,8 @@ Chart.jsの読み込みに失敗している可能性があります。ブラウ
 - OpenAI APIの利用上限を確認
 - インターネット接続を確認
 
+詳細なトラブルシューティングは **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** を参照してください。
+
 ## 開発
 
 ### プロジェクト構造
@@ -197,19 +244,29 @@ Chart.jsの読み込みに失敗している可能性があります。ブラウ
 instagram-report-app/
 ├── src/
 │   ├── components/      # Reactコンポーネント
+│   │   ├── Login.tsx
 │   │   ├── Dashboard.tsx
 │   │   ├── DataInput.tsx
 │   │   ├── AIReportViewer.tsx
 │   │   ├── ExportPanel.tsx
 │   │   └── AccountSettings.tsx
 │   ├── services/        # ビジネスロジック
+│   │   ├── authService.ts
 │   │   ├── dataService.ts
 │   │   ├── aiService.ts
 │   │   ├── statisticsService.ts
 │   │   └── exportService.ts
+│   ├── lib/             # ライブラリ設定
+│   │   └── supabaseClient.ts
 │   ├── types/           # TypeScript型定義
 │   └── App.tsx          # メインアプリ
+├── supabase/
+│   └── migrations/      # SQLマイグレーション
+│       ├── 001_initial_schema.sql
+│       └── 002_row_level_security.sql
 ├── public/
+├── .env.example
+├── SUPABASE_SETUP.md
 ├── package.json
 └── vite.config.ts
 ```
@@ -240,11 +297,12 @@ npm run preview
 
 ## 今後の機能
 
-- [ ] 複数アカウント対応
-- [ ] チーム運用機能
-- [ ] より詳細な統計分析
-- [ ] データのクラウド同期（オプション）
+- [ ] チーム運用機能（複数ユーザー間でのデータ共有）
+- [ ] より詳細な統計分析（週次・月次レポート）
+- [ ] グラフの種類追加（円グラフ、棒グラフなど）
+- [ ] データのインポート機能
 - [ ] モバイルアプリ版
+- [ ] 通知機能（目標達成時など）
 
 ---
 
