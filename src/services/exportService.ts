@@ -1,6 +1,7 @@
 import type { InstagramRecord, StatisticsSummary } from '../types';
 import Papa from 'papaparse';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -103,72 +104,58 @@ class ExportService {
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPosition = 20;
 
-    // タイトル
+    // タイトル（英数字のみ）
     doc.setFontSize(18);
-    doc.text('Instagram運用レポート', pageWidth / 2, yPosition, { align: 'center' });
+    doc.text('Instagram Report', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 10;
 
     // アカウント情報
     doc.setFontSize(12);
-    doc.text(`アカウント: ${accountName}`, 20, yPosition);
+    doc.text(`Account: ${accountName}`, 20, yPosition);
     yPosition += 7;
     doc.text(
-      `出力日時: ${format(new Date(), 'yyyy年MM月dd日 HH:mm', { locale: ja })}`,
+      `Date: ${format(new Date(), 'yyyy/MM/dd HH:mm')}`,
       20,
       yPosition
     );
     yPosition += 15;
 
-    // 統計サマリー
-    doc.setFontSize(14);
-    doc.text('統計サマリー', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(10);
-    const summaryData = [
-      `総記録数: ${statistics.totalRecords}日`,
-      `総フォロワー増加: ${statistics.totalFollowerGrowth}人`,
-      `平均フォロワー増加: ${statistics.averageFollowerGrowth}人/日`,
-      `平均フォローバック率: ${statistics.averageFollowBackRate}%`,
-      `総運用時間: ${statistics.totalOperationTime}分`,
-      `総いいね数: ${statistics.totalLikes}回`,
-    ];
-
-    summaryData.forEach(line => {
-      doc.text(line, 25, yPosition);
-      yPosition += 6;
+    // 統計サマリーテーブル
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Statistics', 'Value']],
+      body: [
+        ['Total Records', `${statistics.totalRecords} days`],
+        ['Total Follower Growth', `${statistics.totalFollowerGrowth} followers`],
+        ['Average Follower Growth', `${statistics.averageFollowerGrowth} followers/day`],
+        ['Average Follow Back Rate', `${statistics.averageFollowBackRate}%`],
+        ['Total Operation Time', `${statistics.totalOperationTime} min`],
+        ['Total Likes', `${statistics.totalLikes} times`],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
+      margin: { left: 20, right: 20 },
     });
 
-    yPosition += 10;
-
-    // 最近の記録
-    doc.setFontSize(14);
-    doc.text('最近の記録（直近10日）', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(9);
+    // 最近の記録テーブル
     const recentRecords = records.slice(0, 10);
+    const tableData = recentRecords.map((record) => [
+      record.date,
+      `${record.followersBefore} -> ${record.followersAfter}`,
+      `+${record.followerGrowth || 0}`,
+      `${record.followBackRate || 0}%`,
+      `${record.operationTime} min`,
+      `${record.likes} likes`,
+    ]);
 
-    recentRecords.forEach((record, index) => {
-      if (yPosition > 270) {
-        doc.addPage();
-        yPosition = 20;
-      }
-
-      doc.text(`${index + 1}. ${record.date}`, 25, yPosition);
-      yPosition += 5;
-      doc.text(
-        `   フォロワー: ${record.followersBefore} → ${record.followersAfter} (+${record.followerGrowth || 0})`,
-        25,
-        yPosition
-      );
-      yPosition += 5;
-      doc.text(
-        `   フォローバック率: ${record.followBackRate || 0}% | 運用時間: ${record.operationTime}分`,
-        25,
-        yPosition
-      );
-      yPosition += 8;
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 15,
+      head: [['Date', 'Followers', 'Growth', 'FB Rate', 'Time', 'Likes']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] },
+      margin: { left: 20, right: 20 },
+      styles: { fontSize: 9 },
     });
 
     // フッター
@@ -177,7 +164,7 @@ class ExportService {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.text(
-        `ページ ${i} / ${pageCount}`,
+        `Page ${i} / ${pageCount}`,
         pageWidth / 2,
         doc.internal.pageSize.getHeight() - 10,
         { align: 'center' }
